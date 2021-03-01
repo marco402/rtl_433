@@ -31,7 +31,6 @@ I use modulation type OOK_PULSE_PPM_spe
 	third
 		put only 4 lsb in the byte with shift 1 bit.
 
-
 A transmission package is:
 	-preambule 8 "1"
 	-very long gap
@@ -49,7 +48,12 @@ A transmission package is:
 - byte 6 a check byte (the XOR of bytes 1-6 inclusive)
     each bit is effectively a parity bit for correspondingly positioned bit
     in the real message
-exemple:
+
+	command line for me -f 433920000 -g 49.8 -vvv 2>test.txt
+
+	example:	
+for decoding
+
 00001101100000000001101100000110000001101
 00->0
  00->0
@@ -59,12 +63,12 @@ exemple:
      10->nothing
       01->1...
 
-000 1100 0000  0001  1000 0100 0000    1
-    c    signe 1*100 8*10 4    parite
+000 1100 0000 0001 1000 0100 0000 1
+c signe 1100 810 4 parite
 =184/10 degres
 
-hexa 0c   00   01   08   04   00
-     b[1] b[2] b[3] b[4] b[5] b[6]
+hexa 0c 00 01 08 04 00
+b[1] b[2] b[3] b[4] b[5] b[6]
 
 for coding
 0->0
@@ -74,6 +78,8 @@ so we can decode also as this
 
 0->0
 011->1
+	
+	
 */
 
 #include "decoder.h"
@@ -85,20 +91,33 @@ static int tech_433_callback(r_device *decoder, bitbuffer_t *bitbuffer)
     int first_byte,  temp_raw; 
     float temp_c;
 
-    int r = bitbuffer_find_repeated_row(bitbuffer, 1, 28);
-    if (r < 0)
+    int r = bitbuffer_find_repeated_row(bitbuffer, 1, 48);
+    if (r < 0) {
+        if (decoder->verbose > 1) {
+            fprintf(stderr, "%s: DECODE_ABORT_EARLY\n", __func__);
+        }
         return DECODE_ABORT_EARLY;
-
+	}
 	b= (bitbuffer->bb[r]);
-         if (bitbuffer->bits_per_row[r] != 64 )
+	if (bitbuffer->bits_per_row[r] <48)
+	{
+        if (decoder->verbose > 1) {
+            fprintf(stderr, "%s %u: DECODE_ABORT_LENGTH\n", __func__, bitbuffer->bits_per_row[r]);
+        }
         return DECODE_ABORT_LENGTH;
-
-    //if (b[1] != 0x0c)
-    //    return DECODE_FAIL_SANITY;
+	}
+    if (decoder->verbose > 1)
+        fprintf(stderr, "%s %u: LENGTH\n", __func__, bitbuffer->bits_per_row[r]);
+    if (b[1] != 0x0c)
+        return DECODE_FAIL_SANITY;
 
     if ((b[1] ^ b[2] ^ b[3] ^ b[4] ^ b[5] ^ b[6]) != 0)
+		{
+            if (decoder->verbose > 1) {
+                fprintf(stderr, "%s: DECODE_FAIL_MIC\n", __func__);
+            }
         return DECODE_FAIL_MIC;
-
+		}
     first_byte = b[1];
     if (b[2] & 2)
 		temp_c   =(float) -(((b[3] * 100) + (b[4] * 10) + b[5]) / 10.0);
@@ -107,11 +126,10 @@ static int tech_433_callback(r_device *decoder, bitbuffer_t *bitbuffer)
 
     data = data_make(
             "model",            "",             DATA_STRING, _X("tech_433","Tech 433"),
-            "id",               "First byte",           DATA_INT,    first_byte,
+            "id", "ID Code", DATA_INT, first_byte,
            "temperature_C",    "Temperature",  DATA_FORMAT, "%.01f C", DATA_DOUBLE, temp_c,
-            "mic",              "Integrity",    DATA_STRING, "CRC",
+            "mic", "Integrity", DATA_STRING, "CRC OK",
             NULL);
-
     decoder_output_data(decoder, data);
     return 1;
 }
@@ -129,10 +147,10 @@ static char *output_fields[] = {
 r_device tech_433 = {
         .name        = "tech_433",
         .modulation  = OOK_PULSE_PPM_SPE,
-        .short_width = 240,  // short gap    "1" 
-        .long_width  = 1950, // long gap     "0"
-        .gap_limit   = 8000, // packet gap
-        .reset_limit = 10000,
+        .short_width = 224,    //short gap
+        .long_width  = 2056 ,  //long gap
+        .gap_limit   = 100,   //packet gap
+        .reset_limit = 100000,
         .tolerance   = 180,
         .decode_fn   = &tech_433_callback,
         .fields      = output_fields,
