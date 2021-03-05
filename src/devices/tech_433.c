@@ -63,12 +63,12 @@ for decoding
      10->nothing
       01->1...
 
-000 1100 0000 0001 1000 0100 0000 1
-c signe 1100 810 4 parite
+000 1100 0000 0001  1000 0100 0000 1
+    c signe   1*100 8*10 4    parite
 =184/10 degres
 
-hexa 0c 00 01 08 04 00
-b[1] b[2] b[3] b[4] b[5] b[6]
+hexa 0c   00   01   08   04   00
+     b[1] b[2] b[3] b[4] b[5] b[6]
 
 for coding
 0->0
@@ -147,10 +147,10 @@ static char *output_fields[] = {
 r_device tech_433 = {
         .name        = "tech_433",
         .modulation  = OOK_PULSE_PPM_SPE,
-        .short_width = 224,    //short gap
-        .long_width  = 2056 ,  //long gap
+        .short_width = 224,    //short gap  "1"
+        .long_width  = 2056 ,  //long gap   "0"
         .gap_limit   = 100,   //packet gap
-        .reset_limit = 100000,
+        .reset_limit = 10000,
         .tolerance   = 180,
         .decode_fn   = &tech_433_callback,
         .fields      = output_fields,
